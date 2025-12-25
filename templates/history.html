@@ -1,47 +1,95 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>📜 Prediction History</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
 
-  <!-- Sidebar -->
-  {% include "sidebar.html" %}
+{% block content %}
+    <h2>📜 Prediction History</h2>
 
-  <!-- Main Content -->
-  <div class="main-content">
-    <h1>📜 Prediction History</h1>
-
+    <!-- Table of predictions -->
     {% if predictions %}
-    <table class="history-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Input Text</th>
-          <th>Predicted Label</th>
-          <th>Created At</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in predictions %}
-        <tr>
-          <td>{{ row.id }}</td>
-          <td>{{ row.input_text }}</td>
-          <td>{{ row.predicted_label }}</td>
-          <td>{{ row.created_at }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        <table class="table table-striped mt-3">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Input Text</th>
+                    <th>Predicted Label</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in predictions %}
+                <tr>
+                    <td>{{ row.id }}</td>
+                    <td>{{ row.input_text }}</td>
+                    <td>{{ row.predicted_label }}</td>
+                    <td>{{ row.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% else %}
-      <p class="no-data">No predictions found.</p>
+        <p class="text-muted">No predictions yet.</p>
     {% endif %}
 
-    <a class="back-home" href="{{ url_for('home') }}">🏠 Back to Home</a>
-  </div>
+    <!-- Charts -->
+    <div class="row mt-5">
+        <div class="col-md-6">
+            <h4 class="text-center mb-3">Sentiment Distribution (Pie Chart)</h4>
+            <canvas id="pieChart"></canvas>
+        </div>
+        <div class="col-md-6">
+            <h4 class="text-center mb-3">Sentiment Counts (Bar Chart)</h4>
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
 
-</body>
-</html>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Ensure sentiment_counts is safely converted to JSON
+        const sentimentCounts = {{ sentiment_counts | tojson | safe }};
+        const labels = Object.keys(sentimentCounts).map(label => label.charAt(0).toUpperCase() + label.slice(1));
+        const values = Object.values(sentimentCounts);
+
+        // Pie Chart
+        new Chart(document.getElementById('pieChart'), {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Bar Chart
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Sentiment Count',
+                    data: values,
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107']
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    </script>
+{% endblock %}

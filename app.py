@@ -14,28 +14,70 @@ app.secret_key = "replace_this_with_a_secure_random_key"
 # ---------------------------
 # Load ML model and vectorizer
 # ---------------------------
-with open(r"C:\Users\Sahana D Raju\Desktop\August Internship\internship 2025\sentiment-analysis\model.pkl", "rb") as f:
+MODEL_PATH = r"C:\Users\Sahana D Raju\OneDrive\Desktop\August Internship\internship 2025\sentiment-analysis\model.pkl"
+VEC_PATH = r"C:\Users\Sahana D Raju\OneDrive\Desktop\August Internship\internship 2025\sentiment-analysis\vectorizer.pkl"
+
+with open(MODEL_PATH, "rb") as f:
     model = pickle.load(f)
 
-with open(r"C:\Users\Sahana D Raju\Desktop\August Internship\internship 2025\sentiment-analysis\vectorizer.pkl", "rb") as f:
+with open(VEC_PATH, "rb") as f:
     vectorizer = pickle.load(f)
 
 # ---------------------------
-# Database connection
+# Database connection and initialization
 # ---------------------------
-def get_db_connection():
+def get_db_connection(create_db=False):
     try:
+        if create_db:
+            conn = pymysql.connect(
+                host="localhost",
+                user="root",
+                password="",   # Add your MySQL password if required
+                cursorclass=DictCursor
+            )
+            with conn.cursor() as cursor:
+                cursor.execute("CREATE DATABASE IF NOT EXISTS sentiment_analysis")
+            conn.close()
         conn = pymysql.connect(
             host="localhost",
             user="root",
-            password="",        # your MySQL password
+            password="",   # Add your MySQL password if required
             database="sentiment_analysis",
             cursorclass=DictCursor
         )
         return conn
     except pymysql.MySQLError as err:
-        print("Database connection error:", err)
+        print("❌ Database connection error:", err)
         return None
+
+def init_db():
+    conn = get_db_connection(create_db=True)
+    if conn:
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        email VARCHAR(100) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS predictions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        input_text TEXT NOT NULL,
+                        predicted_label VARCHAR(20) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            conn.commit()
+            print("✅ Database tables initialized successfully!")
+        except Exception as e:
+            print("❌ Error initializing database:", e)
+        finally:
+            conn.close()
 
 # ---------------------------
 # Login required decorator
@@ -52,10 +94,13 @@ def login_required(f):
 # ---------------------------
 # Routes
 # ---------------------------
+
 @app.route("/")
-@login_required
 def home():
-    return render_template("home.html", username=session.get("username"))
+    if "username" in session:
+        return render_template("home.html", username=session.get("username"))
+    else:
+        return render_template("home.html")  # or landing.html if you create one
 
 @app.route("/predict", methods=["GET", "POST"])
 @login_required
@@ -68,10 +113,11 @@ def predict():
         flash("⚠ Please enter some text!", "error")
         return render_template("index.html")
 
+    # ML Prediction
     input_vec = vectorizer.transform([input_text])
     prediction = model.predict(input_vec)[0]
 
-    # Save prediction in DB
+    # Store in DB
     conn = get_db_connection()
     if conn:
         try:
@@ -82,7 +128,7 @@ def predict():
                 )
             conn.commit()
         except Exception as e:
-            print("Database insert error:", e)
+            print("❌ Database insert error:", e)
         finally:
             conn.close()
 
@@ -92,6 +138,8 @@ def predict():
 @login_required
 def history():
     rows = []
+    sentiment_counts = {"Positive": 0, "Negative": 0, "Neutral": 0}
+
     conn = get_db_connection()
     if conn:
         try:
@@ -101,15 +149,18 @@ def history():
                     "FROM predictions ORDER BY created_at DESC"
                 )
                 rows = cursor.fetchall()
+                # Count sentiments
+                for r in rows:
+                    label = r["predicted_label"]
+                    if label in sentiment_counts:
+                        sentiment_counts[label] += 1
         except Exception as e:
-            print("Database error:", e)
+            print("❌ Database error:", e)
         finally:
             conn.close()
-    return render_template("history.html", predictions=rows)
 
-# ---------------------------
-# Authentication Routes
-# ---------------------------
+    return render_template("history.html", predictions=rows, sentiment_counts=sentiment_counts)
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "username" in session:
@@ -127,7 +178,7 @@ def login():
                     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
                     user = cursor.fetchone()
             except Exception as e:
-                print("Database error:", e)
+                print("❌ Database error:", e)
             finally:
                 conn.close()
 
@@ -171,7 +222,7 @@ def register():
                     )
                 conn.commit()
             except Exception as e:
-                print("Database error on register:", e)
+                print("❌ Error in register:", e)
                 flash("⚠ Something went wrong. Try again.", "error")
             finally:
                 conn.close()
@@ -185,10 +236,11 @@ def register():
 def logout():
     session.pop("username", None)
     flash("✅ You have been logged out.")
-    return redirect(url_for("login"))
+    return redirect(url_for("home"))
 
 # ---------------------------
 # Run the app
 # ---------------------------
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)

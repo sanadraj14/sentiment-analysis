@@ -1,38 +1,65 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Sentiment Analysis</title>
-    <!-- Link external CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
-</head>
-<body>
-    {% include "sidebar.html" %}
+{% extends "base.html" %}
 
-    <!-- Wrap content in main-content for centering -->
-    <div class="main-content">
-        <h1>Sentiment Analysis App</h1>
+{% block title %}Predict - Sentiment Analysis{% endblock %}
 
-        <!-- Form that sends text to Flask /predict route -->
-        <form action="/predict" method="post">
-            <textarea name="text" placeholder="Type your review here..." required></textarea><br>
-            <input type="submit" value="Analyze">
-        </form>
-
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
-
-        {% if prediction %}
-            <div class="result">
-                <h2>Input: {{ input_text }}</h2>
-                <h2>Prediction: {{ prediction }}</h2>
-                {% if proba %}
-                    <h3>Confidence: {{ (proba * 100) | round(2) }}%</h3>
-                {% endif %}
-            </div>
-        {% endif %}
+{% block content %}
+    <!-- Page Heading -->
+    <div class="text-center mb-4 animate__animated animate__fadeInDown">
+        <h1 class="fw-bold">🛍 Myntra Product Review Analyzer</h1>
+        <p class="lead">Type a product review and discover its sentiment instantly!</p>
     </div>
-</body>
-</html>
+
+    <!-- Logout Button -->
+    {% if 'username' in session %}
+        <div class="mb-3 text-end animate__animated animate__fadeInRight">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">🚪 Logout</a>
+        </div>
+    {% endif %}
+
+    <!-- Input Form -->
+    <div class="card shadow-lg p-4 mb-4 animate__animated animate__fadeInUp">
+        <form action="/predict" method="post">
+            <div class="mb-3">
+                <textarea name="text" class="form-control" rows="4" placeholder="✨ Example: 'The kurta quality is amazing and delivery was super fast!'" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">🔍 Analyze Sentiment</button>
+        </form>
+    </div>
+
+    <!-- Error Message -->
+    {% if error %}
+        <div class="alert alert-danger animate__animated animate__shakeX">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <!-- Prediction Result -->
+    {% if prediction %}
+        <div class="card shadow-lg p-4 mt-4 animate__animated animate__fadeInUp">
+            <h3 class="text-center mb-3">📊 Sentiment Result</h3>
+            <p><strong>Input Review:</strong> {{ input_text }}</p>
+            <p><strong>Predicted Sentiment:</strong> 
+                {% if prediction == 'Positive' %}
+                    <span class="badge bg-success">😊 Positive</span>
+                {% elif prediction == 'Negative' %}
+                    <span class="badge bg-danger">☹️ Negative</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">😐 Neutral</span>
+                {% endif %}
+            </p>
+            {% if proba %}
+                <p><strong>Confidence:</strong> {{ (proba * 100) | round(2) }}%</p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Insights Section -->
+    <div class="mt-5 animate__animated animate__fadeInUp animate__delay-1s">
+        <h4>✨ Insights from Myntra Reviews</h4>
+        <ul>
+            <li>👗 <b>Ethnic wear</b reviews are mostly positive, highlighting quality and trendy designs.</li>
+            <li>👟 <b>Footwear</b reviews show mixed sentiment, with sizing issues being common.</li>
+            <li>📦 Customers love Myntra’s <b>fast delivery</b, but some mention return hassles.</li>
+        </ul>
+    </div>
+{% endblock %}
