@@ -33,11 +33,11 @@
     <!-- Charts -->
     <div class="row mt-5">
         <div class="col-md-6">
-            <h4 class="text-center mb-3">Sentiment Distribution (Pie Chart)</h4>
+            <h4 class="text-center mb-3">Sentiment Distribution</h4>
             <canvas id="pieChart"></canvas>
         </div>
         <div class="col-md-6">
-            <h4 class="text-center mb-3">Sentiment Counts (Bar Chart)</h4>
+            <h4 class="text-center mb-3">Sentiment Counts</h4>
             <canvas id="barChart"></canvas>
         </div>
     </div>
@@ -45,50 +45,32 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Ensure sentiment_counts is safely converted to JSON
-        const sentimentCounts = {{ sentiment_counts | tojson | safe }};
-        const labels = Object.keys(sentimentCounts).map(label => label.charAt(0).toUpperCase() + label.slice(1));
-        const values = Object.values(sentimentCounts);
+        document.addEventListener('DOMContentLoaded', function() {
+            // Explicitly parse the JSON string from the backend for better syntax highlighting
+            const sentimentCountsStr = '{{ sentiment_counts | tojson | safe }}';
+            const sentimentCounts = JSON.parse(sentimentCountsStr);
+            
+            const labels = Object.keys(sentimentCounts);
+            const values = Object.values(sentimentCounts);
+            const colors = ['#28a745', '#dc3545', '#ffc107'];
 
-        // Pie Chart
-        new Chart(document.getElementById('pieChart'), {
-            type: 'pie',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: values,
-                    backgroundColor: ['#28a745', '#dc3545', '#ffc107']
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
+            if (values.some(v => v > 0)) {
+                new Chart(document.getElementById('pieChart'), {
+                    type: 'pie',
+                    data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
 
-        // Bar Chart
-        new Chart(document.getElementById('barChart'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Sentiment Count',
-                    data: values,
-                    backgroundColor: ['#28a745', '#dc3545', '#ffc107']
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: { beginAtZero: true }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
+                new Chart(document.getElementById('barChart'), {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Sentiment Count', data: values, backgroundColor: colors }] },
+                    options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+            } else {
+                document.getElementById('pieChart').parentElement.innerHTML =
+                    '<p class="text-center text-muted">No data yet. Make some predictions!</p>';
+                document.getElementById('barChart').parentElement.innerHTML =
+                    '<p class="text-center text-muted">Charts will appear here.</p>';
             }
         });
     </script>
